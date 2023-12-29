@@ -1,0 +1,78 @@
+version: "3.7"
+
+services:
+  grampsweb: &grampsweb
+    container_name: grampsweb
+    image: ghcr.io/gramps-project/grampsweb:latest
+    restart: always
+    environment: &grampsweb-env
+      GRAMPSWEB_TREE: "Gramps Web"
+      VIRTUAL_PORT: "5000"
+      VIRTUAL_HOST: ${DOMAIN}
+      LETSENCRYPT_HOST: ${DOMAIN}
+      LETSENCRYPT_EMAIL: ${EMAIL}
+      GRAMPSWEB_CELERY_CONFIG__broker_url: "redis://grampsweb_redis:6379/0"
+      GRAMPSWEB_CELERY_CONFIG__result_backend: "redis://grampsweb_redis:6379/0"
+      GRAMPSWEB_RATELIMIT_STORAGE_URI: redis://grampsweb_redis:6379/1
+    expose:
+      - 5000
+    volumes:
+      - ./data/gramps/users:/app/users
+      - ./data/gramps/index:/app/indexdir
+      - ./data/gramps/thumbnail_cache:/app/thumbnail_cache
+      - gramps_cache:/app/cache
+      - gramps_secret:/app/secret
+      - ./data/gramps/db:/root/.gramps/grampsdb
+      - ./data/gramps/media:/app/media
+      - gramps_tmp:/tmp
+    networks:
+      - proxy-tier
+      - default
+
+  grampsweb_celery:
+    <<: *grampsweb  # YAML merge key copying the entire grampsweb service config
+    container_name: grampsweb_celery
+    depends_on:
+      - grampsweb_redis
+    environment:
+      <<: *grampsweb-env  # YAML merge key copying the grampsweb environment config
+      # overriding let's encrypt variables since celery is not exposed
+      VIRTUAL_PORT: ""
+      VIRTUAL_HOST: ""
+      LETSENCRYPT_HOST: ""
+      LETSENCRYPT_EMAIL: ""
+    command: celery -A gramps_webapi.celery worker --loglevel=INFO
+
+  grampsweb_redis:
+    image: redis:alpine
+    container_name: grampsweb_redis
+    restart: always
+
+  proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    restart: always
+    ports:
+      - 80:80
+      - 443:443
+    environment:
+      ENABLE_IPV6: "true"
+    volumes:
+      - ./data/nginx/conf:/etc/nginx/conf.d
+      - ./data/nginx/dhparam:/etc/nginx/dhparam
+      - ./data/nginx/certs:/etc/nginx/certs:ro
+      - vhost.d:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+    networks:
+      - proxy-tier
+
+volumes:
+  vhost.d:
+  html:
+  gramps_secret:
+  gramps_db:
+  gramps_tmp:
+
+networks:
+  proxy-tier:
