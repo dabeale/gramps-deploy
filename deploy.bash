@@ -17,8 +17,8 @@ cp my_proxy.conf data/nginx/conf
 
 # Create the ssl certificates
 CERTS=data/nginx/certs
-#openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $CERTS/nginx.key -out $CERTS/nginx.crt
-#openssl dhparam -out data/nginx/dhparam/dhparam.pem 4096
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $CERTS/nginx.key -out $CERTS/nginx.crt
+openssl dhparam -out data/nginx/dhparam/dhparam.pem 4096
 
 for ct in key crt; do
   cp $CERTS/nginx.$ct $CERTS/default.$ct
