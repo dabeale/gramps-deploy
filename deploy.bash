@@ -16,14 +16,29 @@ done
 cp my_proxy.conf data/nginx/conf
 
 # Create the ssl certificates
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout data/nginx/certs/nginx.key -out data/nginx/certs/nginx.crt
-openssl dhparam -out data/nginx/dhparam/dhparam.pem 4096
+CERTS=data/nginx/certs
+#openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout $CERTS/nginx.key -out $CERTS/nginx.crt
+#openssl dhparam -out data/nginx/dhparam/dhparam.pem 4096
+
+for ct in key crt; do
+  cp $CERTS/nginx.$ct $CERTS/default.$ct
+done
 
 # Create the docker containers
 docker compose up -d
 
-# Enable ssl
-sed -i 's/if (.*) {/if 0 {/g'
-docker exec nginx-proxy service nginx reload
+# Wait for configuration
+CONF=data/nginx/conf/default.conf
+while [ ! -f $CONF ]; do
+  echo "Waiting for configuration file..."
+  sleep 5
+done
+sleep 1
 
+# Enable ssl
+sed -i 's/return 500;//g' $CONF
+sed -i 's/default.key/nginx.key/g' $CONF
+sed -i 's/default.crt/nginx.crt/g' $CONF
+
+docker exec nginx-proxy service nginx reload
 

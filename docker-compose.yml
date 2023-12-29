@@ -71,7 +71,7 @@ volumes:
   vhost.d:
   html:
   gramps_secret:
-  gramps_db:
+  gramps_cache:
   gramps_tmp:
 
 networks:
